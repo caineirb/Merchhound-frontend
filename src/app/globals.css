@@ -64,3 +64,6 @@ body {
   color: var(--foreground) !important;
 }
 
+button {
+  cursor: pointer;
+}

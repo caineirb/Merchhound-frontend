@@ -67,41 +67,40 @@ const InventoryPage = () => {
   
   return (
     <section className="space-y-6">
-      <button onClick={() => setAddStockModal(true)}>Add New Stock</button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Inventory</h1>
-          <p className="text-secondary mt-2">Manage your product stock and details</p>
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">Inventory</h1>
+      </div>
+      
+      <div className="w-4/5 mx-auto">
+        <button onClick={() => setAddStockModal(true)} className="px-4 py-2 m-5 bg-green-600 text-white rounded-lg hover:bg-green-700">Add New Stock</button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 justify-items-center">
+          {/* Example Stock Cards */}
+          {Array.from({ length: tempStockData.length }, (_, index) => (
+              <button key={index} 
+                onClick={() => { openModal(index) }}
+                className="hover:shadow-lg transition-shadow duration-300"
+              >
+                <StockCard {...tempStockData[index]} />
+              </button>
+            ))
+          }
         </div>
-        
-        <div className="w-4/5 mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 justify-items-center">
-            {/* Example Stock Cards */}
-            {Array.from({ length: tempStockData.length }, (_, index) => (
-                <button key={index} 
-                  onClick={() => { openModal(index) }}
-                  className="hover:shadow-lg transition-shadow duration-300"
-                >
-                  <StockCard {...tempStockData[index]} />
-                </button>
-              ))
-            }
-          </div>
-        </div>
-        {stockInfoModal && stockInfo && (
-          <StocksInfoModal 
-            stockInfo={stockInfo} 
-            setStockInfo={handleStockInfoChange}
-            onClose={closeModal}
-            onSave={saveStockChanges}
-          />
-        )}
-        {addStockModal && (
-          <AddStockModal 
-            setTempStockData={setTempStockData}
-            tempStockData={tempStockData}
-            onClose={() => setAddStockModal(false)}
-          />
-        )}
+      </div>
+      {stockInfoModal && stockInfo && (
+        <StocksInfoModal 
+          stockInfo={stockInfo} 
+          setStockInfo={handleStockInfoChange}
+          onClose={closeModal}
+          onSave={saveStockChanges}
+        />
+      )}
+      {addStockModal && (
+        <AddStockModal 
+          setTempStockData={setTempStockData}
+          tempStockData={tempStockData}
+          onClose={() => setAddStockModal(false)}
+        />
+      )}
     </section>
   )
 }

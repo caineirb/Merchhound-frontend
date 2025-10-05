@@ -9,6 +9,19 @@ interface StockInfoModalProps {
 }
 
 const StockInfoModal = ({ stockInfo, setStockInfo, onClose, onSave }: StockInfoModalProps) => {
+    const checkFields = () => {
+        return stockInfo.name.trim() !== '' && stockInfo.amount >= 0 && stockInfo.price >= 0 && stockInfo.image !== '';
+    }
+
+    const handleSave = () => {
+        if (!checkFields()) {
+            alert('Please fill in all fields and select an image.');
+            return;
+        }
+        onSave();
+        onClose();
+    }
+
     return (
         <div className="fixed inset-0 bg-[#00000070] bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -33,7 +46,7 @@ const StockInfoModal = ({ stockInfo, setStockInfo, onClose, onSave }: StockInfoM
                 </div>
                 
                 <div className="relative mt-4">
-                    <input type="number" id="stock-quantity" value={stockInfo.amount} className="w-full border border-gray-300 border-solid rounded p-2 pt-6" readOnly />
+                    <input type="number" id="stock-quantity" value={stockInfo.amount} className="w-full border border-gray-300 border-solid rounded p-2 pt-6" onChange={(e) => setStockInfo({ ...stockInfo, amount: parseInt(e.target.value) })} />
                     <label htmlFor="stock-quantity" className="absolute top-1 left-2 text-xs text-gray-600 bg-white px-1">Stock</label>
                 </div>
                 
@@ -46,7 +59,7 @@ const StockInfoModal = ({ stockInfo, setStockInfo, onClose, onSave }: StockInfoM
                     <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" onClick={onClose}>
                         Close
                     </button>
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700" onClick={() => { onSave(); onClose(); }}>
+                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700" onClick={handleSave}>
                         Save
                     </button>
                 </div>

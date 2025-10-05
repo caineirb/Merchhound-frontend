@@ -11,6 +11,7 @@ const InventoryPage = () => {
   const [stockInfoModal, setStockInfoModal] = useState<boolean>(false);
   const [stockInfo, setStockInfo] = useState<Stock | null>(null);
   const [tempStockData, setTempStockData] = useState<Stock[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Generate data on client side to avoid hydration mismatch
   useEffect(() => {
@@ -53,6 +54,19 @@ const InventoryPage = () => {
     }
   }
 
+  const handleDeleteStock = (stockUuid: string | null) => {
+    if (stockUuid) {
+      setTempStockData(prevData => prevData.filter(stock => stock.stockUuid !== stockUuid));
+    }
+    closeModal();
+  }
+
+  // Filter stocks based on search query
+  const filteredStocks = tempStockData.filter(stock =>
+    stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    stock.stockUuid?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Don't render anything until data is loaded
   if (tempStockData.length === 0) {
     return (
@@ -70,26 +84,53 @@ const InventoryPage = () => {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Inventory</h1>
       </div>
-      
       <div className="w-4/5 mx-auto">
-        <button onClick={() => setAddStockModal(true)} className="px-4 py-2 m-5 bg-green-600 text-white rounded-lg hover:bg-green-700">Add New Stock</button>
+        <div className="flex items-center gap-4 m-5">
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="Search stocks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <svg
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <button onClick={() => setAddStockModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap">Add New Stock</button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 justify-items-center">
-          {/* Example Stock Cards */}
-          {Array.from({ length: tempStockData.length }, (_, index) => (
-              <button key={index} 
-                onClick={() => { openModal(index) }}
-                className="hover:shadow-lg transition-shadow duration-300"
-              >
-                <StockCard {...tempStockData[index]} />
-              </button>
-            ))
-          }
+          {/* Stock Cards */}
+          {filteredStocks.length > 0 ? (
+            filteredStocks.map((stock, index) => {
+              const originalIndex = tempStockData.findIndex(s => s.stockUuid === stock.stockUuid);
+              return (
+                <button key={stock.stockUuid || index} 
+                  onClick={() => { openModal(originalIndex) }}
+                  className="hover:shadow-lg transition-shadow duration-300"
+                >
+                  <StockCard {...stock} />
+                </button>
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              {searchQuery ? `No stocks found matching "${searchQuery}"` : 'No stocks available'}
+            </div>
+          )}
         </div>
       </div>
       {stockInfoModal && stockInfo && (
         <StocksInfoModal 
           stockInfo={stockInfo} 
           setStockInfo={handleStockInfoChange}
+          onDelete={() => handleDeleteStock(stockInfo?.stockUuid || null)}
           onClose={closeModal}
           onSave={saveStockChanges}
         />

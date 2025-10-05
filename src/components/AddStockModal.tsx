@@ -1,7 +1,16 @@
-import { Stock } from '@/types';
+import { CropCanvasProps, DragStateProps, Stock } from '@/types';
 import { generateUUID } from '@/helpers';
 import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
+import {
+    drawCanvas, 
+    handleMouseDown, 
+    handleMouseMove, 
+    handleMouseUp, 
+    handleCropConfirm, 
+    handleCropCancel,
+    handleImageChange 
+} from '@/helpers';
 
 interface AddStockModalProps {
     setTempStockData: (stocks: Stock[]) => void;
@@ -17,339 +26,27 @@ const AddStockModal = ({ setTempStockData, tempStockData, onClose }: AddStockMod
         price: 0,
         image: ''
     });
-    const [imagePreview, setImagePreview] = useState<string>('');
+    const [imagePreview, setImagePreview] = useState<string>(newStock.image);
     const [showCropper, setShowCropper] = useState<boolean>(false);
-    const [originalImage, setOriginalImage] = useState<string>('');
-    
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isDragging, setIsDragging] = useState<boolean>(false);
-    const [cropRect, setCropRect] = useState<{x: number, y: number, width: number, height: number}>({
+    const [originalImage, setOriginalImage] = useState<CropCanvasProps['originalImage']>('');
+    const [cropRect, setCropRect] = useState<CropCanvasProps['cropRect']>({
         x: 50,
         y: 50,
         width: 300,
         height: 300
     });
-    const [dragType, setDragType] = useState<'corner' | 'edge' | 'move' | null>(null);
-    const [dragCorner, setDragCorner] = useState<string | null>(null);
-    const [dragOffset, setDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
-    const [imgDimensions, setImgDimensions] = useState<{width: number, height: number}>({width: 0, height: 0});
+    const [imgDimensions, setImgDimensions] = useState<CropCanvasProps['imgDimensions']>({width: 0, height: 0});
+    const [isDragging, setIsDragging] = useState<DragStateProps['isDragging']>(false);
+    const [dragType, setDragType] = useState<DragStateProps['dragType']>(null);
+    const [dragCorner, setDragCorner] = useState<DragStateProps['dragCorner']>(null);
+    const [dragOffset, setDragOffset] = useState<DragStateProps['dragOffset']>({x: 0, y: 0});
 
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     useEffect(() => {
         if (showCropper && originalImage) {
-            drawCanvas();
+            drawCanvas({canvasRef, imgDimensions, originalImage, cropRect});
         }
     }, [showCropper, originalImage, cropRect]);
-
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const result = event.target?.result as string;
-                setOriginalImage(result);
-                
-                const img = document.createElement('img');
-                img.onload = () => {
-                    const maxWidth = 600;
-                    const scale = Math.min(1, maxWidth / img.width);
-                    const width = img.width * scale;
-                    const height = img.height * scale;
-                    
-                    setImgDimensions({width, height});
-                    
-                    const margin = 50;
-                    const rectSize = Math.min(width, height) - (margin * 2);
-                    setCropRect({
-                        x: margin,
-                        y: margin,
-                        width: rectSize,
-                        height: rectSize
-                    });
-                    
-                    setShowCropper(true);
-                };
-                img.src = result;
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const drawCanvas = () => {
-        const canvas = canvasRef.current;
-        if (!canvas || !originalImage) return;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const img = document.createElement('img');
-        img.onload = () => {
-            canvas.width = imgDimensions.width;
-            canvas.height = imgDimensions.height;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, imgDimensions.width, imgDimensions.height);
-            
-            // Darken everything
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Clear the crop rectangle area and redraw the correct portion
-            ctx.clearRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
-            
-            // Calculate the source coordinates from the original image
-            const scaleX = img.width / imgDimensions.width;
-            const scaleY = img.height / imgDimensions.height;
-            
-            ctx.drawImage(
-                img,
-                cropRect.x * scaleX,
-                cropRect.y * scaleY,
-                cropRect.width * scaleX,
-                cropRect.height * scaleY,
-                cropRect.x,
-                cropRect.y,
-                cropRect.width,
-                cropRect.height
-            );
-            
-            // Draw border
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
-            
-            // Draw corner handles
-            const handleSize = 10;
-            const corners = [
-                {x: cropRect.x, y: cropRect.y, name: 'tl'},
-                {x: cropRect.x + cropRect.width, y: cropRect.y, name: 'tr'},
-                {x: cropRect.x + cropRect.width, y: cropRect.y + cropRect.height, name: 'br'},
-                {x: cropRect.x, y: cropRect.y + cropRect.height, name: 'bl'}
-            ];
-            
-            corners.forEach(corner => {
-                ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(corner.x - handleSize/2, corner.y - handleSize/2, handleSize, handleSize);
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(corner.x - handleSize/2, corner.y - handleSize/2, handleSize, handleSize);
-            });
-            
-            // Draw edge handles
-            const edgeHandles = [
-                {x: cropRect.x + cropRect.width/2, y: cropRect.y, name: 't'},
-                {x: cropRect.x + cropRect.width, y: cropRect.y + cropRect.height/2, name: 'r'},
-                {x: cropRect.x + cropRect.width/2, y: cropRect.y + cropRect.height, name: 'b'},
-                {x: cropRect.x, y: cropRect.y + cropRect.height/2, name: 'l'}
-            ];
-            
-            edgeHandles.forEach(handle => {
-                ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
-            });
-        };
-        img.src = originalImage;
-    };
-
-    const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return {x: 0, y: 0};
-        
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-    };
-
-    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        const pos = getMousePos(e);
-        const handleSize = 10;
-        
-        // Check corners
-        const corners = [
-            {x: cropRect.x, y: cropRect.y, name: 'tl'},
-            {x: cropRect.x + cropRect.width, y: cropRect.y, name: 'tr'},
-            {x: cropRect.x + cropRect.width, y: cropRect.y + cropRect.height, name: 'br'},
-            {x: cropRect.x, y: cropRect.y + cropRect.height, name: 'bl'}
-        ];
-        
-        for (const corner of corners) {
-            if (Math.abs(pos.x - corner.x) < handleSize && Math.abs(pos.y - corner.y) < handleSize) {
-                setIsDragging(true);
-                setDragType('corner');
-                setDragCorner(corner.name);
-                setDragOffset({x: pos.x - corner.x, y: pos.y - corner.y});
-                return;
-            }
-        }
-        
-        // Check edges
-        const edges = [
-            {x: cropRect.x + cropRect.width/2, y: cropRect.y, name: 't'},
-            {x: cropRect.x + cropRect.width, y: cropRect.y + cropRect.height/2, name: 'r'},
-            {x: cropRect.x + cropRect.width/2, y: cropRect.y + cropRect.height, name: 'b'},
-            {x: cropRect.x, y: cropRect.y + cropRect.height/2, name: 'l'}
-        ];
-        
-        for (const edge of edges) {
-            if (Math.abs(pos.x - edge.x) < handleSize && Math.abs(pos.y - edge.y) < handleSize) {
-                setIsDragging(true);
-                setDragType('edge');
-                setDragCorner(edge.name);
-                return;
-            }
-        }
-        
-        // Check if inside rectangle for moving
-        if (pos.x >= cropRect.x && pos.x <= cropRect.x + cropRect.width &&
-            pos.y >= cropRect.y && pos.y <= cropRect.y + cropRect.height) {
-            setIsDragging(true);
-            setDragType('move');
-            setDragOffset({x: pos.x - cropRect.x, y: pos.y - cropRect.y});
-        }
-    };
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (!isDragging) return;
-        
-        const pos = getMousePos(e);
-        const newRect = {...cropRect};
-        
-        if (dragType === 'move') {
-            newRect.x = Math.max(0, Math.min(imgDimensions.width - cropRect.width, pos.x - dragOffset.x));
-            newRect.y = Math.max(0, Math.min(imgDimensions.height - cropRect.height, pos.y - dragOffset.y));
-        } else if (dragType === 'corner') {
-            switch (dragCorner) {
-                case 'tl':
-                    const newWidth1 = cropRect.x + cropRect.width - pos.x;
-                    const newHeight1 = cropRect.y + cropRect.height - pos.y;
-                    if (newWidth1 > 20 && newHeight1 > 20) {
-                        newRect.x = pos.x;
-                        newRect.y = pos.y;
-                        newRect.width = newWidth1;
-                        newRect.height = newHeight1;
-                    }
-                    break;
-                case 'tr':
-                    const newWidth2 = pos.x - cropRect.x;
-                    const newHeight2 = cropRect.y + cropRect.height - pos.y;
-                    if (newWidth2 > 20 && newHeight2 > 20) {
-                        newRect.y = pos.y;
-                        newRect.width = newWidth2;
-                        newRect.height = newHeight2;
-                    }
-                    break;
-                case 'br':
-                    const newWidth3 = pos.x - cropRect.x;
-                    const newHeight3 = pos.y - cropRect.y;
-                    if (newWidth3 > 20 && newHeight3 > 20) {
-                        newRect.width = newWidth3;
-                        newRect.height = newHeight3;
-                    }
-                    break;
-                case 'bl':
-                    const newWidth4 = cropRect.x + cropRect.width - pos.x;
-                    const newHeight4 = pos.y - cropRect.y;
-                    if (newWidth4 > 20 && newHeight4 > 20) {
-                        newRect.x = pos.x;
-                        newRect.width = newWidth4;
-                        newRect.height = newHeight4;
-                    }
-                    break;
-            }
-        } else if (dragType === 'edge') {
-            switch (dragCorner) {
-                case 't':
-                    const newHeight5 = cropRect.y + cropRect.height - pos.y;
-                    if (newHeight5 > 20) {
-                        newRect.y = pos.y;
-                        newRect.height = newHeight5;
-                    }
-                    break;
-                case 'r':
-                    const newWidth6 = pos.x - cropRect.x;
-                    if (newWidth6 > 20) {
-                        newRect.width = newWidth6;
-                    }
-                    break;
-                case 'b':
-                    const newHeight7 = pos.y - cropRect.y;
-                    if (newHeight7 > 20) {
-                        newRect.height = newHeight7;
-                    }
-                    break;
-                case 'l':
-                    const newWidth8 = cropRect.x + cropRect.width - pos.x;
-                    if (newWidth8 > 20) {
-                        newRect.x = pos.x;
-                        newRect.width = newWidth8;
-                    }
-                    break;
-            }
-        }
-        
-        // Constrain to canvas bounds
-        newRect.x = Math.max(0, Math.min(imgDimensions.width - newRect.width, newRect.x));
-        newRect.y = Math.max(0, Math.min(imgDimensions.height - newRect.height, newRect.y));
-        newRect.width = Math.min(imgDimensions.width - newRect.x, newRect.width);
-        newRect.height = Math.min(imgDimensions.height - newRect.y, newRect.height);
-        
-        setCropRect(newRect);
-    };
-
-    const handleMouseUp = () => {
-        setIsDragging(false);
-        setDragType(null);
-        setDragCorner(null);
-    };
-
-    const handleCropConfirm = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx || !originalImage) return;
-        
-        const img = document.createElement('img');
-        img.onload = () => {
-            const scaleX = img.width / imgDimensions.width;
-            const scaleY = img.height / imgDimensions.height;
-            
-            const scaledRect = {
-                x: cropRect.x * scaleX,
-                y: cropRect.y * scaleY,
-                width: cropRect.width * scaleX,
-                height: cropRect.height * scaleY
-            };
-            
-            canvas.width = scaledRect.width;
-            canvas.height = scaledRect.height;
-            
-            ctx.drawImage(
-                img,
-                scaledRect.x,
-                scaledRect.y,
-                scaledRect.width,
-                scaledRect.height,
-                0,
-                0,
-                scaledRect.width,
-                scaledRect.height
-            );
-            
-            const croppedImage = canvas.toDataURL('image/png');
-            setImagePreview(croppedImage);
-            setNewStock({ ...newStock, image: croppedImage });
-            setShowCropper(false);
-        };
-        img.src = originalImage;
-    };
-
-    const handleCropCancel = () => {
-        setShowCropper(false);
-        setOriginalImage('');
-    };
 
     const checkFields = () => {
         return newStock.name.trim() !== '' && newStock.amount >= 0 && newStock.price >= 0 && newStock.image !== '';
@@ -373,23 +70,23 @@ const AddStockModal = ({ setTempStockData, tempStockData, onClose }: AddStockMod
             <div className="border-2 border-gray-300 inline-block">
                 <canvas 
                     ref={canvasRef}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
+                    onMouseDown={(e) => handleMouseDown(e, {canvasRef, imgDimensions, originalImage, cropRect, newStock}, {setIsDragging, setDragType, setDragCorner, setDragOffset})}
+                    onMouseMove={(e) => handleMouseMove(e, {canvasRef, imgDimensions, originalImage, cropRect, newStock}, {isDragging, dragType, dragCorner, dragOffset, setCropRect})}
+                    onMouseUp={() => handleMouseUp({setIsDragging, setDragType, setDragCorner})}
+                    onMouseLeave={(e) => handleMouseUp({setIsDragging, setDragType, setDragCorner})}
                     className="cursor-crosshair"
                 />
             </div>
             <div className="flex gap-2 mt-4">
                 <button 
                     className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                    onClick={handleCropCancel}
+                    onClick={() => handleCropCancel(setShowCropper, setOriginalImage)}
                 >
                     Cancel
                 </button>
                 <button 
                     className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    onClick={handleCropConfirm}
+                    onClick={() => handleCropConfirm(newStock, {setImagePreview, setNewStock, setShowCropper, originalImage, imgDimensions, cropRect})}
                 >
                     Confirm Crop
                 </button>
@@ -414,7 +111,9 @@ const AddStockModal = ({ setTempStockData, tempStockData, onClose }: AddStockMod
                                 type="file" 
                                 id="image-upload" 
                                 accept="image/*"
-                                onChange={handleImageChange}
+                                onChange={(e) => handleImageChange(e, 
+                                    { setOriginalImage,  setImgDimensions }, 
+                                    { setCropRect, setShowCropper })}
                                 className="hidden"
                             />
                             

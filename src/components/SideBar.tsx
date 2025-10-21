@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import '@/app/globals.css';
+// import '@/app/globals.css';
 
 const SideBar = () => {
   const pathname = usePathname();

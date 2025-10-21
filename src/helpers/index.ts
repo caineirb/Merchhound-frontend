@@ -1,2 +1,1 @@
-export * from './uuid-generator';
-export * from './image-cropper';
+export * from './inventory-api-calls';

@@ -2,32 +2,43 @@
 
 import React, { useState, useEffect } from 'react'
 import StockCard from '@/components/StockCard';
-import { Stock } from '@/types';
+import { Bundle, Item, Product, ProductWithInfo } from '@/types';
 import StocksInfoModal from '@/components/StocksInfoModal';
 import AddStockModal from '@/components/AddStockModal';
+import { fetchProducts } from '@/helpers';
 
 const InventoryPage = () => {
   const [addStockModal, setAddStockModal] = useState<boolean>(false);
   const [stockInfoModal, setStockInfoModal] = useState<boolean>(false);
-  const [stockInfo, setStockInfo] = useState<Stock | null>(null);
-  const [tempStockData, setTempStockData] = useState<Stock[]>([]);
+  const [stockInfo, setStockInfo] = useState<ProductWithInfo | null>(null);
+  const [productsData, setProductsData] = useState<ProductWithInfo[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Generate data on client side to avoid hydration mismatch
   useEffect(() => {
-    const data: Stock[] = Array.from({ length: 20 }, (_, index) => ({
-      name: `Product ${index + 1}`,
-      stockUuid: `UUID-${index + 1}`,
-      amount: Math.floor(Math.random() * 100),
-      price: parseFloat((Math.random() * 100).toFixed(2)),
-      image: `/temp-pics/lanyard.jpg`,
-    }));
-    setTempStockData(data);
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const products = await fetchProducts();
+      setProductsData(products);
+      console.log('Fetched products:', products);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      alert('Failed to load products. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  const openModal = (index: number) => {
-    setStockInfo(tempStockData[index]);
-    setStockInfoModal(true);
+  const openModal = (productId: string) => {
+    const product = productsData.find(p => p.product.product_id === productId);
+    if (product) {
+      setStockInfo(product);
+      setStockInfoModal(true);
+    }
   }
 
   const closeModal = () => {
@@ -35,45 +46,34 @@ const InventoryPage = () => {
     setStockInfo(null);
   }
 
-  const updateStockData = (updatedStock: Stock) => {
-    setTempStockData(prevData => 
-      prevData.map(stock => 
-        stock.stockUuid === updatedStock.stockUuid ? updatedStock : stock
-      )
-    );
+  const handleAddStock = () => {
+    loadProducts();
+    setAddStockModal(false);
   }
 
-  const handleStockInfoChange = (updatedStock: Stock) => {
-    // Only update the modal's local state, not the main data
-    setStockInfo(updatedStock);
-  }
-
-  const saveStockChanges = () => {
-    if (stockInfo) {
-      updateStockData(stockInfo);
-    }
-  }
-
-  const handleDeleteStock = (stockUuid: string | null) => {
-    if (stockUuid) {
-      setTempStockData(prevData => prevData.filter(stock => stock.stockUuid !== stockUuid));
-    }
+  const handleUpdateStock = () => {
+    loadProducts();
     closeModal();
   }
 
-  // Filter stocks based on search query
-  const filteredStocks = tempStockData.filter(stock =>
-    stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    stock.stockUuid?.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleDeleteStock = (productId: string) => {
+    setProductsData(prevData => prevData.filter(p => p.product.product_id !== productId));
+    closeModal();
+  }
+
+  // Filter products based on search query
+  const filteredProducts = productsData.filter(({ product }) => 
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.product_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Don't render anything until data is loaded
-  if (tempStockData.length === 0) {
+  if (loading) {
     return (
       <section className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Inventory</h1>
-          <p className="text-secondary mt-2">Loading...</p>
+          <p className="text-secondary mt-2">Loading products...</p>
         </div>
       </section>
     );
@@ -83,13 +83,16 @@ const InventoryPage = () => {
     <section className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Inventory</h1>
+        <p className="text-secondary mt-2">
+          {productsData.length} product{productsData.length !== 1 ? 's' : ''} available
+        </p>
       </div>
       <div className="w-4/5 mx-auto">
         <div className="flex items-center gap-4 m-5">
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-lg">
             <input
               type="text"
-              placeholder="Search stocks..."
+              placeholder="Search by name, ID, or type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -103,43 +106,45 @@ const InventoryPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <button onClick={() => setAddStockModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap">Add New Stock</button>
+          <button 
+            onClick={() => setAddStockModal(true)} 
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
+          >
+            Add New Stock
+          </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 justify-items-center">
-          {/* Stock Cards */}
-          {filteredStocks.length > 0 ? (
-            filteredStocks.map((stock, index) => {
-              const originalIndex = tempStockData.findIndex(s => s.stockUuid === stock.stockUuid);
-              return (
-                <button key={stock.stockUuid || index} 
-                  onClick={() => { openModal(originalIndex) }}
-                  className="hover:shadow-lg transition-shadow duration-300"
-                >
-                  <StockCard {...stock} />
-                </button>
-              );
-            })
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map(({ product }) => (
+              <button 
+                key={product.product_id} 
+                onClick={() => openModal(product.product_id)}
+                className="hover:shadow-lg transition-shadow duration-300"
+              >
+                <StockCard {...product} />
+              </button>
+            ))
           ) : (
             <div className="col-span-full text-center py-8 text-gray-500">
-              {searchQuery ? `No stocks found matching "${searchQuery}"` : 'No stocks available'}
+              {searchQuery 
+                ? `No products found matching "${searchQuery}"` 
+                : 'No products available. Click "Add New Stock" to get started.'}
             </div>
           )}
         </div>
       </div>
       {stockInfoModal && stockInfo && (
         <StocksInfoModal 
-          stockInfo={stockInfo} 
-          setStockInfo={handleStockInfoChange}
-          onDelete={() => handleDeleteStock(stockInfo?.stockUuid || null)}
+          productWithInfo={stockInfo}
+          onDelete={handleDeleteStock}
           onClose={closeModal}
-          onSave={saveStockChanges}
+          onSave={handleUpdateStock}
         />
       )}
       {addStockModal && (
         <AddStockModal 
-          setTempStockData={setTempStockData}
-          tempStockData={tempStockData}
           onClose={() => setAddStockModal(false)}
+          onSave={handleAddStock}
         />
       )}
     </section>

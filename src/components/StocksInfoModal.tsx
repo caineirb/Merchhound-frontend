@@ -252,7 +252,6 @@ const StocksInfoModal = ({ productWithInfo, onClose, onSave, onDelete }: StocksI
       const productData = {
         name: product.name.trim(),
         type: product.type,
-        product_image: product.product_image,
         price: product.price,
       };
 
@@ -275,10 +274,10 @@ const StocksInfoModal = ({ productWithInfo, onClose, onSave, onDelete }: StocksI
         alert('Bundle product updated successfully!');
       } else {
         // Validate items
-        const validItems = itemDetails.filter(item => item.quantity > 0);
+        const validItems = itemDetails.filter(item => item.quantity >= 0);
         
         if (validItems.length === 0) {
-          alert('Please add at least one item with quantity > 0');
+          alert('Please add at least one item');
           setLoading(false);
           return;
         }
@@ -535,7 +534,7 @@ const StocksInfoModal = ({ productWithInfo, onClose, onSave, onDelete }: StocksI
                         value={item.quantity || ""}
                         onChange={(e) =>
                           handleItemDetailChange(i, "quantity", parseInt(e.target.value) || 0)
-                        }
+                          }
                         className="w-full border border-gray-300 rounded p-2 pt-6"
                       />
                       <label className="absolute top-1 left-2 text-xs text-gray-600 bg-white px-1">

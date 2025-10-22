@@ -134,3 +134,18 @@ export async function deleteProduct(productId: string) {
     throw error;
   }
 }
+
+export async function generateFormsTemplate() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/google/form-template`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to generate forms template');
+    const data = await response.json();
+    return JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.error('Error generating forms template:', error);
+    throw error;
+  }
+}

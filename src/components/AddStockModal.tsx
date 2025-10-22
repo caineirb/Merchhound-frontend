@@ -150,7 +150,7 @@ const AddStockModal = ({ onClose, onSave }: AddStockModalProps) => {
         onSave();
       } else {
         // Validate items
-        const validItems = itemDetails.filter(item => item.quantity > 0);
+        const validItems = itemDetails.filter(item => item.quantity >= 0);
         
         if (validItems.length === 0) {
           alert('Please add at least one item with quantity > 0');
@@ -351,7 +351,17 @@ const AddStockModal = ({ onClose, onSave }: AddStockModalProps) => {
                     placeholder="Qty"
                     min="1"
                     value={item[1]}
-                    onChange={(e) => handleBundleItemChange(i, 'quantity', e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d+$/.test(val)) {
+                        handleBundleItemChange(i, 'quantity', val === '' ? '1' : val);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === '.' || e.key === '-' || e.key === 'e' || e.key === 'E') {
+                        e.preventDefault();
+                      }
+                    }}
                     className="border border-gray-300 rounded p-2 w-20"
                   />
                   {bundleItems.length > 1 && (
@@ -387,10 +397,18 @@ const AddStockModal = ({ onClose, onSave }: AddStockModalProps) => {
                         type="number"
                         placeholder="Quantity*"
                         min="0"
-                        value={item.quantity || ""}
-                        onChange={(e) =>
-                          handleItemDetailChange(i, "quantity", Number.parseInt(e.target.value) || 0)
-                        }
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            handleItemDetailChange(i, "quantity", val === '' ? 0 : Number(val));
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === '.' || e.key === '-' || e.key === 'e' || e.key === 'E') {
+                            e.preventDefault();
+                          }
+                        }}
                         className="w-full border border-gray-300 rounded p-2 pt-6"
                       />
                       <label className="absolute top-1 left-2 text-xs text-gray-600 bg-white px-1">
